@@ -21,9 +21,9 @@ import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Single;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.disposables.Disposable;
+import io.reactivex.rxjava3.functions.Action;
 import io.reactivex.rxjava3.functions.Consumer;
 import io.reactivex.rxjava3.schedulers.Schedulers;
-import kotlinx.coroutines.DisposableHandle;
 
 public class MainViewModel extends AndroidViewModel {
     private static final String BASE_URL = "https://dog.ceo/api/breeds/image/random";
@@ -33,6 +33,8 @@ public class MainViewModel extends AndroidViewModel {
     private CompositeDisposable compositeDisposable = new CompositeDisposable();
 
     private MutableLiveData<DogImage> dogImageMutableLiveData = new MutableLiveData<>();
+    private MutableLiveData<Boolean> isLoading = new MutableLiveData<>();
+    private MutableLiveData<Boolean> isInternetConnection = new MutableLiveData<>();
 
     public MainViewModel(@NonNull Application application) {
         super(application);
@@ -42,10 +44,37 @@ public class MainViewModel extends AndroidViewModel {
         return dogImageMutableLiveData;
     }
 
-    public void loadDocImage() {
+    public LiveData<Boolean> getIsLoading() {
+        return isLoading;
+    }
+
+    public LiveData<Boolean> getIsInternetConnection() {
+        return isInternetConnection;
+    }
+
+    public void loadDogImage() {
         Disposable disposable = loadDogImageRx()
                 .subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread())
+                .doOnSubscribe(new Consumer<Disposable>() {
+                    @Override
+                    public void accept(Disposable disposable) throws Throwable {
+                        isLoading.setValue(true);
+                        isInternetConnection.setValue(true);
+                    }
+                })
+                .doAfterTerminate(new Action() {
+                    @Override
+                    public void run() throws Throwable {
+                        isLoading.setValue(false);
+                    }
+                })
+                .doOnError(new Consumer<Throwable>() {
+                    @Override
+                    public void accept(Throwable throwable) throws Throwable {
+                        isInternetConnection.setValue(false);
+                    }
+                })
                 .subscribe(new Consumer<DogImage>() {
                     @Override
                     public void accept(DogImage dogImage) throws Throwable {
